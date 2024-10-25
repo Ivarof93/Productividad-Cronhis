@@ -1,0 +1,207 @@
+import tkinter as tk
+from tkinter import ttk, filedialog, messagebox
+import pandas as pd
+import os
+
+class ProductividadApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Calculadora de Productividad Médica")
+        self.style = ttk.Style()
+        self.style.theme_use('clam')
+
+        # Crear marco principal
+        self.main_frame = ttk.Frame(self.root, padding="20")
+        self.main_frame.pack(fill="both", expand=True)
+
+        # Título de la aplicación
+        ttk.Label(self.main_frame, text="Calculadora de Productividad Médica", font=("Helvetica", 16, "bold")).pack(pady=10)
+
+        # Botón para seleccionar archivo Excel
+        self.create_button(self.main_frame, "Seleccionar archivo Excel", self.load_excel).pack(pady=10)
+        self.file_label = ttk.Label(self.main_frame, text="", font=("Helvetica", 10))
+        self.file_label.pack()
+
+        # Botón para mostrar/ocultar el panel de productividad general
+        self.create_button(self.main_frame, "Productividad General", self.toggle_productividad_frame).pack(pady=10)
+        self.productividad_frame = self.create_productividad_frame(self.main_frame)
+        self.productividad_frame.pack_forget()
+
+        # Variable para almacenar la ruta del archivo
+        self.file_path = None
+        self.df = None  # DataFrame para almacenar los datos del Excel
+
+    def create_button(self, parent, text, command):
+        return ttk.Button(parent, text=text, command=command)
+
+    def create_productividad_frame(self, parent):
+        frame = ttk.Frame(parent)
+
+        # Botón para calcular productividad de médicos
+        self.create_button(frame, "Médicos", self.calculate_medicos_productivity).pack(pady=10)
+
+        # Botón para calcular productividad de urgencias
+        self.create_button(frame, "Urgencias", self.calculate_urgencias_productivity).pack(pady=10)
+
+        # Botón para calcular productividad de odontólogos
+        self.create_button(frame, "Odontología", self.calculate_odontologia_productivity).pack(pady=10)
+
+        # Botón para calcular productividad de psicólogos
+        self.create_button(frame, "Salud Mental", self.calculate_psicologia_productivity).pack(pady=10)
+
+        return frame
+
+    def toggle_productividad_frame(self):
+        if self.productividad_frame.winfo_ismapped():
+            self.productividad_frame.pack_forget()
+            self.root.geometry('400x200')  # Ajustar tamaño de ventana
+        else:
+            self.productividad_frame.pack(pady=10)
+            self.root.geometry('400x400')  # Ajustar tamaño de ventana
+
+    def load_excel(self):
+        self.file_path = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx;*.xls")])
+        if self.file_path:
+            self.file_label.config(text=os.path.basename(self.file_path))
+            self.df = pd.read_excel(self.file_path, header=1)  # Leer desde la fila 2 como encabezado
+            messagebox.showinfo("Archivo Cargado", "El archivo se ha cargado exitosamente.")
+
+    def calculate_medicos_productivity(self):
+        if self.df is not None:
+            print(self.df.columns)  # Verifica los nombres de las columnas
+
+            # Filtrar médicos que son "MEDICOS" y que no tengan "URGENCIAS"
+            filtered_df = self.df[
+                (self.df['rol_prof_atiente'] == 'MEDICOS') &  # Usar el nombre correcto de la columna
+                (self.df['Centro_Costo'] != 'URGENCIAS')  # Filtrar por Centro_Costo
+                ]
+
+            # Agrupar por médico y servicio
+            productivity = filtered_df.groupby(['prof_atiende', 'nom_servicio']).agg(
+                cantidad=('cantidad', 'sum'),
+                total=('valor', 'sum')
+            ).reset_index()
+
+            # Crear un nuevo archivo Excel
+            output_path = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel files", "*.xlsx")])
+            if output_path:
+                # Crear un objeto ExcelWriter
+                with pd.ExcelWriter(output_path) as writer:
+                    for medic in productivity['prof_atiende'].unique():
+                        # Filtrar los datos por médico
+                        medic_data = productivity[productivity['prof_atiende'] == medic]
+
+                        # Recortar el nombre del médico si es necesario
+                        sheet_name = medic[:31]  # Limitar a 31 caracteres para el nombre de la hoja
+                        medic_data.to_excel(writer, sheet_name=sheet_name, index=False)
+
+                messagebox.showinfo("Productividad Exportada",
+                                    "La productividad de los médicos se ha exportado exitosamente.")
+        else:
+            messagebox.showwarning("Error", "Por favor, carga un archivo Excel primero.")
+
+    def calculate_urgencias_productivity(self):
+        if self.df is not None:
+            print(self.df.columns)  # Verifica los nombres de las columnas
+
+            # Filtrar médicos que sean "MEDICOS" y que trabajen en "URGENCIAS"
+            filtered_df = self.df[
+                (self.df['rol_prof_atiente'] == 'MEDICOS') &  # Usar el nombre correcto de la columna
+                (self.df['Centro_Costo'] == 'URGENCIAS')  # Filtrar por Centro_Costo para urgencias
+                ]
+
+            # Agrupar por médico y servicio
+            productivity = filtered_df.groupby(['prof_atiende', 'nom_servicio']).agg(
+                cantidad=('cantidad', 'sum'),
+                total=('valor', 'sum')
+            ).reset_index()
+
+            # Crear un nuevo archivo Excel
+            output_path = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel files", "*.xlsx")])
+            if output_path:
+                # Crear un objeto ExcelWriter
+                with pd.ExcelWriter(output_path) as writer:
+                    for medic in productivity['prof_atiende'].unique():
+                        # Filtrar los datos por médico
+                        medic_data = productivity[productivity['prof_atiende'] == medic]
+
+                        # Recortar el nombre del médico si es necesario
+                        sheet_name = medic[:31]  # Limitar a 31 caracteres para el nombre de la hoja
+                        medic_data.to_excel(writer, sheet_name=sheet_name, index=False)
+
+                messagebox.showinfo("Productividad Exportada",
+                                    "La productividad de los médicos en URGENCIAS se ha exportado exitosamente.")
+        else:
+            messagebox.showwarning("Error", "Por favor, carga un archivo Excel primero.")
+
+    def calculate_odontologia_productivity(self):
+        if self.df is not None:
+            print(self.df.columns)  # Verifica los nombres de las columnas
+
+            # Filtrar odontólogos que estén bajo "ODONTOLOGÍA - ODONTÓLOGOS"
+            filtered_df = self.df[
+                (self.df['rol_prof_atiente'] == 'ODONTOLOGÍA - ODONTÓLOGOS')  # Usar el nombre correcto de la columna
+                ]
+
+            # Agrupar por odontólogo y servicio
+            productivity = filtered_df.groupby(['prof_atiende', 'nom_servicio']).agg(
+                cantidad=('cantidad', 'sum'),
+                total=('valor', 'sum')
+            ).reset_index()
+
+            # Crear un nuevo archivo Excel
+            output_path = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel files", "*.xlsx")])
+            if output_path:
+                # Crear un objeto ExcelWriter
+                with pd.ExcelWriter(output_path) as writer:
+                    for odont in productivity['prof_atiende'].unique():
+                        # Filtrar los datos por odontólogo
+                        odont_data = productivity[productivity['prof_atiende'] == odont]
+
+                        # Recortar el nombre del odontólogo si es necesario
+                        sheet_name = odont[:31]  # Limitar a 31 caracteres para el nombre de la hoja
+                        odont_data.to_excel(writer, sheet_name=sheet_name, index=False)
+
+                messagebox.showinfo("Productividad Exportada",
+                                    "La productividad de los odontólogos se ha exportado exitosamente.")
+        else:
+            messagebox.showwarning("Error", "Por favor, carga un archivo Excel primero.")
+
+    def calculate_psicologia_productivity(self):
+        if self.df is not None:
+            print(self.df.columns)  # Verifica los nombres de las columnas
+
+            # Filtrar psicólogos que estén bajo "PSICOLOGIA"
+            filtered_df = self.df[
+                (self.df['rol_prof_atiente'].str.contains('PSICOLOGIA', na=False))  # Usar el nombre correcto de la columna
+                ]
+
+            # Agrupar por psicólogo y servicio
+            productivity = filtered_df.groupby(['prof_atiende', 'nom_servicio']).agg(
+                cantidad=('cantidad', 'sum'),
+                total=('valor', 'sum')
+            ).reset_index()
+
+            # Crear un nuevo archivo Excel
+            output_path = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel files", "*.xlsx")])
+            if output_path:
+                # Crear un objeto ExcelWriter
+                with pd.ExcelWriter(output_path) as writer:
+                    for psic in productivity['prof_atiende'].unique():
+                        # Filtrar los datos por psicólogo
+                        psic_data = productivity[productivity['prof_atiende'] == psic]
+
+                        # Recortar el nombre del psicólogo si es necesario
+                        sheet_name = psic[:31]  # Limitar a 31 caracteres para el nombre de la hoja
+                        psic_data.to_excel(writer, sheet_name=sheet_name, index=False)
+
+                messagebox.showinfo("Productividad Exportada",
+                                    "La productividad de los psicólogos se ha exportado exitosamente.")
+        else:
+            messagebox.showwarning("Error", "Por favor, carga un archivo Excel primero.")
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = ProductividadApp(root)
+    root.geometry("400x200")  # Tamaño inicial de la ventana
+    root.mainloop()
