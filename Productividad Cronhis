@@ -2,6 +2,9 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import pandas as pd
 import os
+from datetime import datetime, timedelta
+from tkcalendar import DateEntry  # Asegúrate de tener instalada la biblioteca tkcalendar
+from PIL import Image
 
 class ProductividadApp:
     def __init__(self, root):
@@ -9,6 +12,18 @@ class ProductividadApp:
         self.root.title("Calculadora de Productividad Médica")
         self.style = ttk.Style()
         self.style.theme_use('clam')
+
+        # Rutas de archivos de firma inicializadas en None
+        self.firma_elaborado_path = None
+        self.firma_revisado_path = None
+        self.firma_aprobado_path = None
+
+        # Calcular fechas por defecto
+        today = datetime.today()
+        first_day_current_month = today.replace(day=1)
+        last_day_last_month = first_day_current_month - timedelta(days=1)
+        default_start_date = last_day_last_month.replace(day=26)
+        default_end_date = today.replace(day=25)
 
         # Crear marco principal
         self.main_frame = ttk.Frame(self.root, padding="20")
@@ -22,6 +37,28 @@ class ProductividadApp:
         self.file_label = ttk.Label(self.main_frame, text="", font=("Helvetica", 10))
         self.file_label.pack()
 
+        # Selección de rango de fechas usando DateEntry
+        ttk.Label(self.main_frame, text="Fecha Inicial:").pack(pady=5)
+        self.start_date_entry = DateEntry(self.main_frame, width=30, background='darkblue', foreground='white', borderwidth=2,
+                                           date_pattern='yyyy-mm-dd')
+        self.start_date_entry.set_date(default_start_date)  # Establecer fecha inicial por defecto
+        self.start_date_entry.pack(pady=5)
+
+        ttk.Label(self.main_frame, text="Fecha Final:").pack(pady=5)
+        self.end_date_entry = DateEntry(self.main_frame, width=30, background='darkblue', foreground='white', borderwidth=2,
+                                         date_pattern='yyyy-mm-dd')
+        self.end_date_entry.set_date(default_end_date)  # Establecer fecha final por defecto
+        self.end_date_entry.pack(pady=5)
+
+        # Checkbox para seleccionar un médico específico
+        self.select_single_medico_var = tk.BooleanVar()
+        self.select_single_medico_check = ttk.Checkbutton(self.main_frame, text="Seleccionar médico específico", variable=self.select_single_medico_var, command=self.toggle_medico_selection)
+        self.select_single_medico_check.pack(pady=10)
+
+        # Combobox para seleccionar un médico
+        self.medico_combobox = ttk.Combobox(self.main_frame, state='disabled')
+        self.medico_combobox.pack(pady=5)
+
         # Botón para mostrar/ocultar el panel de productividad general
         self.create_button(self.main_frame, "Productividad General", self.toggle_productividad_frame).pack(pady=10)
         self.productividad_frame = self.create_productividad_frame(self.main_frame)
@@ -30,6 +67,40 @@ class ProductividadApp:
         # Variable para almacenar la ruta del archivo
         self.file_path = None
         self.df = None  # DataFrame para almacenar los datos del Excel
+
+        # Sección para seleccionar archivos de firmas
+        self.firmas_frame = ttk.LabelFrame(self.main_frame, text="Firmas")
+        self.firmas_frame.pack(pady=10, fill="x")
+
+        ttk.Label(self.firmas_frame, text="Firma Elaborado por:").pack(anchor="w", padx=10)
+        ttk.Button(self.firmas_frame, text="Seleccionar Firma", command=self.select_firma_elaborado).pack(anchor="w",
+                                                                                                          padx=20,
+                                                                                                          pady=5)
+
+        ttk.Label(self.firmas_frame, text="Firma Revisado por:").pack(anchor="w", padx=10)
+        ttk.Button(self.firmas_frame, text="Seleccionar Firma", command=self.select_firma_revisado).pack(anchor="w",
+                                                                                                         padx=20,
+                                                                                                         pady=5)
+
+        ttk.Label(self.firmas_frame, text="Firma Aprobado por:").pack(anchor="w", padx=10)
+        ttk.Button(self.firmas_frame, text="Seleccionar Firma", command=self.select_firma_aprobado).pack(anchor="w",
+                                                                                                         padx=20,
+                                                                                                         pady=5)
+
+    def select_firma_elaborado(self):
+        self.firma_elaborado_path = filedialog.askopenfilename(filetypes=[("PNG files", "*.png")])
+        if self.firma_elaborado_path:
+            messagebox.showinfo("Firma Seleccionada", "Firma de 'Elaborado por' seleccionada correctamente.")
+
+    def select_firma_revisado(self):
+        self.firma_revisado_path = filedialog.askopenfilename(filetypes=[("PNG files", "*.png")])
+        if self.firma_revisado_path:
+            messagebox.showinfo("Firma Seleccionada", "Firma de 'Revisado por' seleccionada correctamente.")
+
+    def select_firma_aprobado(self):
+        self.firma_aprobado_path = filedialog.askopenfilename(filetypes=[("PNG files", "*.png")])
+        if self.firma_aprobado_path:
+            messagebox.showinfo("Firma Seleccionada", "Firma de 'Aprobado por' seleccionada correctamente.")
 
     def create_button(self, parent, text, command):
         return ttk.Button(parent, text=text, command=command)
@@ -40,9 +111,6 @@ class ProductividadApp:
         # Botón para calcular productividad de médicos
         self.create_button(frame, "Médicos", self.calculate_medicos_productivity).pack(pady=10)
 
-        # Botón para calcular productividad de urgencias
-        self.create_button(frame, "Urgencias", self.calculate_urgencias_productivity).pack(pady=10)
-
         # Botón para calcular productividad de odontólogos
         self.create_button(frame, "Odontología", self.calculate_odontologia_productivity).pack(pady=10)
 
@@ -50,6 +118,23 @@ class ProductividadApp:
         self.create_button(frame, "Salud Mental", self.calculate_psicologia_productivity).pack(pady=10)
 
         return frame
+
+    def toggle_medico_selection(self):
+        if self.select_single_medico_var.get():
+            # Habilitar el Combobox y llenar con médicos
+            self.medico_combobox['values'] = self.get_medicos_list()
+            self.medico_combobox.current(0)  # Seleccionar el primer médico por defecto
+            self.medico_combobox.state(['!disabled'])
+        else:
+            # Deshabilitar el Combobox
+            self.medico_combobox.state(['disabled'])
+            self.medico_combobox.set('')  # Limpiar selección
+
+    def get_medicos_list(self):
+        if self.df is not None:
+            # Convertir a cadena y luego ordenar
+            return sorted(self.df['prof_atiende'].dropna().astype(str).unique().tolist())
+        return []
 
     def toggle_productividad_frame(self):
         if self.productividad_frame.winfo_ismapped():
@@ -63,145 +148,159 @@ class ProductividadApp:
         self.file_path = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx;*.xls")])
         if self.file_path:
             self.file_label.config(text=os.path.basename(self.file_path))
-            self.df = pd.read_excel(self.file_path, header=1)  # Leer desde la fila 2 como encabezado
+            # Leer desde la fila 2 como encabezado y forzar cup como texto
+            self.df = pd.read_excel(self.file_path, header=1, dtype={'cup': str})
             messagebox.showinfo("Archivo Cargado", "El archivo se ha cargado exitosamente.")
+            # Actualizar la lista de médicos en el Combobox
+            self.medico_combobox['values'] = self.get_medicos_list()
 
     def calculate_medicos_productivity(self):
         if self.df is not None:
-            print(self.df.columns)  # Verifica los nombres de las columnas
-
-            # Filtrar médicos que son "MEDICOS" y que no tengan "URGENCIAS"
+            # Filtrar los médicos que no trabajen en "URGENCIAS"
             filtered_df = self.df[
-                (self.df['rol_prof_atiente'] == 'MEDICOS') &  # Usar el nombre correcto de la columna
-                (self.df['Centro_Costo'] != 'URGENCIAS')  # Filtrar por Centro_Costo
+                (self.df['rol_prof_atiente'] == 'MEDICOS') &
+                (self.df['nom_sede'] != 'URGENCIAS SAN FERNANDO')
                 ]
 
-            # Agrupar por médico y servicio
-            productivity = filtered_df.groupby(['prof_atiende', 'nom_servicio']).agg(
-                cantidad=('cantidad', 'sum'),
-                total=('valor', 'sum')
-            ).reset_index()
+            # Si se selecciona un médico específico, filtrar por él
+            selected_medico = self.medico_combobox.get() if self.select_single_medico_var.get() else None
+
+            # Dividir en Consultas y Metas
+            consultas_df = filtered_df[filtered_df['tipo_servicio'].str.contains('Consultas', na=False)]
+            metas_df = filtered_df[
+                filtered_df['cup'].isin(['906249', '906317', '906225', '906039', '901111', '906610', '907012'])]
 
             # Crear un nuevo archivo Excel
             output_path = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel files", "*.xlsx")])
             if output_path:
-                # Crear un objeto ExcelWriter
-                with pd.ExcelWriter(output_path) as writer:
-                    for medic in productivity['prof_atiende'].unique():
-                        # Filtrar los datos por médico
-                        medic_data = productivity[productivity['prof_atiende'] == medic]
+                with pd.ExcelWriter(output_path, engine='xlsxwriter') as writer:
+                    workbook = writer.book
+                    header_format = workbook.add_format(
+                        {'bold': True, 'bg_color': '#4F81BD', 'font_color': 'white', 'align': 'center',
+                         'font_size': 14})
+                    total_format = workbook.add_format({'bg_color': '#D9E1F2', 'bold': True})
+                    title_format = workbook.add_format(
+                        {'bold': True, 'font_color': '#2F5597', 'font_size': 16, 'align': 'center', 'valign': 'vcenter',
+                         'text_wrap': True})
 
-                        # Recortar el nombre del médico si es necesario
-                        sheet_name = medic[:31]  # Limitar a 31 caracteres para el nombre de la hoja
-                        medic_data.to_excel(writer, sheet_name=sheet_name, index=False)
+                    # Obtener mes actual
+                    mes_actual = datetime.now().strftime('%B %Y')
+
+                    # Obtener fechas del rango
+                    start_date = self.start_date_entry.get()
+                    end_date = self.end_date_entry.get()
+
+                    # Filtrar por médico seleccionado si se ha elegido uno
+                    if selected_medico:
+                        filtered_df = filtered_df[filtered_df['prof_atiende'] == selected_medico]
+
+                    for medico in filtered_df['prof_atiende'].unique():
+                        # Filtrar datos para cada médico
+                        medico_consultas = consultas_df[consultas_df['prof_atiende'] == medico]
+                        medico_metas = metas_df[metas_df['prof_atiende'] == medico]
+
+                        # Calcular totales para consultas y metas
+                        consultas_summary = medico_consultas.groupby('nom_servicio').agg(
+                            cantidad=('cantidad', 'sum'),
+                            total=('valor', 'sum')
+                        ).reset_index()
+                        consultas_summary.loc['Total'] = consultas_summary[['cantidad', 'total']].sum()
+
+                        metas_summary = medico_metas.groupby('nom_servicio').agg(
+                            cantidad=('cantidad', 'sum'),
+                            total=('valor', 'sum')
+                        ).reset_index()
+                        metas_summary.loc['Total'] = metas_summary[['cantidad', 'total']].sum()
+
+                        # Crear hoja del médico
+                        sheet_name = medico[:31]  # Limitar a 31 caracteres
+                        consultas_summary.to_excel(writer, sheet_name=sheet_name, index=False, startrow=4, startcol=0)
+                        metas_summary.to_excel(writer, sheet_name=sheet_name, index=False,
+                                               startrow=len(consultas_summary) + 7, startcol=0)
+
+                        # Acceder a la hoja actual
+                        worksheet = writer.sheets[sheet_name]
+
+                        # Título personalizado con el nombre del médico y el rango de fechas, con saltos de línea
+                        titulo = f"Productividad Médica\n{medico}\n{start_date} - {end_date}"
+                        worksheet.merge_range('A1:C4', titulo, title_format)
+
+                        # Ajuste de la altura de fila para que el título se vea completo
+                        worksheet.set_row(0, 60)  # Ajuste de altura para el título en la fila fusionada
+
+                        # Añadir títulos y formatos
+                        worksheet.write(4, 0, "Consultas", header_format)
+                        worksheet.write(len(consultas_summary) + 7, 0, "Metas", header_format)
+
+                        # Cargar y redimensionar la imagen del logo
+                        logo_path = r"C:\Users\Ivarof\Downloads\LOGO IPS_COLOR HORIZONTAL-14.png"
+                        logo_image = Image.open(logo_path)
+                        logo_image = logo_image.resize((150, 50))  # Ajusta el tamaño según sea necesario
+                        logo_image.save("temp_logo.png")  # Guardar la imagen redimensionada temporalmente
+
+                        # Insertar la imagen en el encabezado
+                        worksheet.insert_image('A1', 'temp_logo.png', {'x_scale': 1, 'y_scale': 1})
+
+                        # Sumatoria total de cantidad y total de ambas secciones
+                        total_cantidad = consultas_summary.loc['Total', 'cantidad'] + metas_summary.loc[
+                            'Total', 'cantidad']
+                        total_total = consultas_summary.loc['Total', 'total'] + metas_summary.loc['Total', 'total']
+
+                        # Escribir sumatoria general al final
+                        row_total = len(consultas_summary) + len(metas_summary) + 10
+                        worksheet.write(row_total, 0, "Total General", header_format)
+                        worksheet.write(row_total, 1, total_cantidad, total_format)
+                        worksheet.write(row_total, 2, total_total, total_format)
+
+                        # Formato de columnas
+                        worksheet.set_column('A:A', 30)
+                        worksheet.set_column('B:B', 20)
+                        worksheet.set_column('C:C', 20)
+
+                        # Añadir firmas
+                        row_firmas = row_total + 3  # Espaciado de 3 filas después del total
+
+                        # "Elaborado por"
+                        worksheet.write(row_firmas, 0, "Elaborado por:", header_format)
+                        worksheet.write(row_firmas + 5, 0, "____________________", total_format)
+                        worksheet.write(row_firmas + 6, 0, "IVAN ARTURO ORTEGA FLOREZ", total_format)
+
+                        # "Revisado por"
+                        worksheet.write(row_firmas, 1, "Revisado por:", header_format)
+                        worksheet.write(row_firmas + 5, 1, "____________________", total_format)
+                        worksheet.write(row_firmas + 6, 1, "JAIRO RUANO", total_format)
+
+                        # "Aprobado por"
+                        worksheet.write(row_firmas, 2, "Aprobado por:", header_format)
+                        worksheet.write(row_firmas + 5, 2, "____________________", total_format)
+                        worksheet.write(row_firmas + 6, 2, "JAIRO RUANO", total_format)
+
+                        worksheet = writer.sheets[sheet_name]  # Asegúrate de acceder a la hoja correcta
+                        # Insertar firmas con tamaño 200x200 píxeles
+                        if self.firma_elaborado_path:
+                            worksheet.insert_image(f'A{row_firmas + 2}', self.firma_elaborado_path,
+                                                   {'x_scale': 0.5, 'y_scale': 0.5})
+                        if self.firma_revisado_path:
+                            worksheet.insert_image(f'B{row_firmas + 2}', self.firma_revisado_path,
+                                                   {'x_scale': 0.5, 'y_scale': 0.5})
+                        if self.firma_aprobado_path:
+                            worksheet.insert_image(f'C{row_firmas + 2}', self.firma_aprobado_path,
+                                                   {'x_scale': 0.5, 'y_scale': 0.5})
 
                 messagebox.showinfo("Productividad Exportada",
                                     "La productividad de los médicos se ha exportado exitosamente.")
         else:
             messagebox.showwarning("Error", "Por favor, carga un archivo Excel primero.")
 
-    def calculate_urgencias_productivity(self):
-        if self.df is not None:
-            print(self.df.columns)  # Verifica los nombres de las columnas
-
-            # Filtrar médicos que sean "MEDICOS" y que trabajen en "URGENCIAS"
-            filtered_df = self.df[
-                (self.df['rol_prof_atiente'] == 'MEDICOS') &  # Usar el nombre correcto de la columna
-                (self.df['Centro_Costo'] == 'URGENCIAS')  # Filtrar por Centro_Costo para urgencias
-                ]
-
-            # Agrupar por médico y servicio
-            productivity = filtered_df.groupby(['prof_atiende', 'nom_servicio']).agg(
-                cantidad=('cantidad', 'sum'),
-                total=('valor', 'sum')
-            ).reset_index()
-
-            # Crear un nuevo archivo Excel
-            output_path = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel files", "*.xlsx")])
-            if output_path:
-                # Crear un objeto ExcelWriter
-                with pd.ExcelWriter(output_path) as writer:
-                    for medic in productivity['prof_atiende'].unique():
-                        # Filtrar los datos por médico
-                        medic_data = productivity[productivity['prof_atiende'] == medic]
-
-                        # Recortar el nombre del médico si es necesario
-                        sheet_name = medic[:31]  # Limitar a 31 caracteres para el nombre de la hoja
-                        medic_data.to_excel(writer, sheet_name=sheet_name, index=False)
-
-                messagebox.showinfo("Productividad Exportada",
-                                    "La productividad de los médicos en URGENCIAS se ha exportado exitosamente.")
-        else:
-            messagebox.showwarning("Error", "Por favor, carga un archivo Excel primero.")
-
     def calculate_odontologia_productivity(self):
-        if self.df is not None:
-            print(self.df.columns)  # Verifica los nombres de las columnas
-
-            # Filtrar odontólogos que estén bajo "ODONTOLOGÍA - ODONTÓLOGOS"
-            filtered_df = self.df[
-                (self.df['rol_prof_atiente'] == 'ODONTOLOGÍA - ODONTÓLOGOS')  # Usar el nombre correcto de la columna
-                ]
-
-            # Agrupar por odontólogo y servicio
-            productivity = filtered_df.groupby(['prof_atiende', 'nom_servicio']).agg(
-                cantidad=('cantidad', 'sum'),
-                total=('valor', 'sum')
-            ).reset_index()
-
-            # Crear un nuevo archivo Excel
-            output_path = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel files", "*.xlsx")])
-            if output_path:
-                # Crear un objeto ExcelWriter
-                with pd.ExcelWriter(output_path) as writer:
-                    for odont in productivity['prof_atiende'].unique():
-                        # Filtrar los datos por odontólogo
-                        odont_data = productivity[productivity['prof_atiende'] == odont]
-
-                        # Recortar el nombre del odontólogo si es necesario
-                        sheet_name = odont[:31]  # Limitar a 31 caracteres para el nombre de la hoja
-                        odont_data.to_excel(writer, sheet_name=sheet_name, index=False)
-
-                messagebox.showinfo("Productividad Exportada",
-                                    "La productividad de los odontólogos se ha exportado exitosamente.")
-        else:
-            messagebox.showwarning("Error", "Por favor, carga un archivo Excel primero.")
+        # Implementar lógica para calcular productividad de odontología
+        messagebox.showinfo("Funcionalidad no implementada", "La funcionalidad para calcular la productividad de odontología no ha sido implementada todavía.")
 
     def calculate_psicologia_productivity(self):
-        if self.df is not None:
-            print(self.df.columns)  # Verifica los nombres de las columnas
-
-            # Filtrar psicólogos que estén bajo "PSICOLOGIA"
-            filtered_df = self.df[
-                (self.df['rol_prof_atiente'].str.contains('PSICOLOGIA', na=False))  # Usar el nombre correcto de la columna
-                ]
-
-            # Agrupar por psicólogo y servicio
-            productivity = filtered_df.groupby(['prof_atiende', 'nom_servicio']).agg(
-                cantidad=('cantidad', 'sum'),
-                total=('valor', 'sum')
-            ).reset_index()
-
-            # Crear un nuevo archivo Excel
-            output_path = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel files", "*.xlsx")])
-            if output_path:
-                # Crear un objeto ExcelWriter
-                with pd.ExcelWriter(output_path) as writer:
-                    for psic in productivity['prof_atiende'].unique():
-                        # Filtrar los datos por psicólogo
-                        psic_data = productivity[productivity['prof_atiende'] == psic]
-
-                        # Recortar el nombre del psicólogo si es necesario
-                        sheet_name = psic[:31]  # Limitar a 31 caracteres para el nombre de la hoja
-                        psic_data.to_excel(writer, sheet_name=sheet_name, index=False)
-
-                messagebox.showinfo("Productividad Exportada",
-                                    "La productividad de los psicólogos se ha exportado exitosamente.")
-        else:
-            messagebox.showwarning("Error", "Por favor, carga un archivo Excel primero.")
+        # Implementar lógica para calcular productividad de psicología
+        messagebox.showinfo("Funcionalidad no implementada", "La funcionalidad para calcular la productividad de psicología no ha sido implementada todavía.")
 
 if __name__ == "__main__":
     root = tk.Tk()
     app = ProductividadApp(root)
-    root.geometry("400x200")  # Tamaño inicial de la ventana
     root.mainloop()
