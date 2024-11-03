@@ -166,9 +166,8 @@ class ProductividadApp:
             selected_medico = self.medico_combobox.get() if self.select_single_medico_var.get() else None
 
             # Dividir en Consultas y Metas
-            consultas_df = filtered_df[filtered_df['tipo_servicio'].str.contains('Consultas', na=False)]
-            metas_df = filtered_df[
-                filtered_df['cup'].isin(['906249', '906317', '906225', '906039', '901111', '906610', '907012'])]
+            consultas_df = filtered_df[filtered_df['cup'].isin(['890101', '890301', '890201', '990211', '907008', '890305', '890301', 'PQ9006', '906039'])]
+            metas_df = filtered_df[filtered_df['cup'].isin(['906249', '906317', '906225', '906039', '901111', '906610', '907012', '990201', '898001', '906317', '906225', '906039', '906249', '907008', '907012'])]
 
             # Crear un nuevo archivo Excel
             output_path = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel files", "*.xlsx")])
@@ -233,7 +232,7 @@ class ProductividadApp:
                         worksheet.write(len(consultas_summary) + 7, 0, "Metas", header_format)
 
                         # Cargar y redimensionar la imagen del logo
-                        logo_path = r"C:\Users\Ivarof\Downloads\LOGO IPS_COLOR HORIZONTAL-14.png"
+                        logo_path = r"C:\Users\Minato\Downloads\LOGO IPS_COLOR HORIZONTAL-14.png"
                         logo_image = Image.open(logo_path)
                         logo_image = logo_image.resize((150, 50))  # Ajusta el tamaño según sea necesario
                         logo_image.save("temp_logo.png")  # Guardar la imagen redimensionada temporalmente
@@ -262,7 +261,7 @@ class ProductividadApp:
 
                         # "Elaborado por"
                         worksheet.write(row_firmas, 0, "Elaborado por:", header_format)
-                        worksheet.write(row_firmas + 5, 0, "____________________", total_format)
+                        worksheet.write(row_firmas + 5, 0, "_________________________", total_format)
                         worksheet.write(row_firmas + 6, 0, "IVAN ARTURO ORTEGA FLOREZ", total_format)
 
                         # "Revisado por"
